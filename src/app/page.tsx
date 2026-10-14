@@ -1,69 +1,114 @@
-import Image from "next/image";
+
+"use client";
+
+import { useState } from "react";
+
+const finding = {
+  title: "S3 bucket may allow public access",
+  severity: "High",
+  service: "Amazon S3",
+  id: "S3-PUBLIC-001",
+  description:
+    "A sample finding indicates that a storage bucket may allow public access. Verify the bucket policy, Block Public Access settings, and business requirements before making changes.",
+};
 
 export default function Home() {
+  const [analysis, setAnalysis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function analyzeFinding() {
+    setLoading(true);
+    setError("");
+    setAnalysis("");
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finding),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Analysis failed");
+      }
+
+      setAnalysis(data.analysis);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Something went wrong"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+      <div className="mx-auto max-w-4xl">
+        <p className="text-sm font-semibold text-cyan-400">
+          CLOUD SECURITY AI ADVISOR
+        </p>
+
+        <h1 className="mt-3 text-3xl font-bold">
+          Cloud security, made actionable.
+        </h1>
+
+        <p className="mt-3 text-slate-300">
+          Analyze sample cloud findings and understand the
+          recommended next steps.
+        </p>
+
+        <section className="mt-8 rounded-xl border border-slate-700 bg-slate-900 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm text-slate-400">
+              {finding.service} · {finding.id}
+            </span>
+            <span className="rounded-full bg-red-950 px-3 py-1 text-sm text-red-300">
+              {finding.severity} risk
+            </span>
+          </div>
+
+          <h2 className="mt-5 text-xl font-semibold">
+            {finding.title}
+          </h2>
+
+          <p className="mt-3 leading-7 text-slate-300">
+            {finding.description}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+          <button
+            onClick={analyzeFinding}
+            disabled={loading}
+            className="mt-6 rounded-lg bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            {loading ? "Analyzing..." : "Analyze finding with AI"}
+          </button>
+
+          {error && (
+            <p role="alert" className="mt-4 text-red-300">
+              {error}
+            </p>
+          )}
+
+          {analysis && (
+            <div className="mt-6 whitespace-pre-wrap rounded-lg bg-slate-800 p-5 leading-7 text-slate-100">
+              <h3 className="mb-3 font-semibold text-cyan-300">
+                AI analysis
+              </h3>
+              {analysis}
+            </div>
+          )}
+        </section>
+
+        <p className="mt-6 text-sm text-slate-500">
+          Portfolio prototype. Uses synthetic findings, not a live
+          cloud security scanner. Recommendations require human review.
+        </p>
+      </div>
+    </main>
   );
 }
+
