@@ -3,21 +3,20 @@
 
 import { useState } from "react";
 
-const finding = {
-  title: "S3 bucket may allow public access",
-  severity: "High",
-  service: "Amazon S3",
-  id: "S3-PUBLIC-001",
-  description:
-    "A sample finding indicates that a storage bucket may allow public access. Verify the bucket policy, Block Public Access settings, and business requirements before making changes.",
-};
+type Severity = "Critical" | "High" | "Medium" | "Low";
 
 export default function Home() {
+  const [title, setTitle] = useState("");
+  const [severity, setSeverity] = useState<Severity>("High");
+  const [service, setService] = useState("AWS IAM");
+  const [id, setId] = useState("TEST-001");
+  const [description, setDescription] = useState("");
   const [analysis, setAnalysis] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function analyzeFinding() {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setLoading(true);
     setError("");
     setAnalysis("");
@@ -26,19 +25,31 @@ export default function Home() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finding),
+        body: JSON.stringify({
+          title,
+          severity,
+          service,
+          id,
+          description,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Analysis failed");
+        throw new Error(data.error || "Analysis failed.");
+      }
+
+      if (typeof data.analysis !== "string") {
+        throw new Error("The server returned an unexpected response.");
       }
 
       setAnalysis(data.analysis);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Something went wrong"
+        err instanceof Error
+          ? err.message
+          : "Unable to analyze this finding."
       );
     } finally {
       setLoading(false);
@@ -46,69 +57,151 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-      <div className="mx-auto max-w-4xl">
-        <p className="text-sm font-semibold text-cyan-400">
-          CLOUD SECURITY AI ADVISOR
+    <main className="mx-auto max-w-3xl px-6 py-12">
+      <header className="mb-8">
+        <p className="mb-2 text-sm font-semibold text-blue-600">
+          CLOUD SECURITY · AI ADVISOR
         </p>
-
-        <h1 className="mt-3 text-3xl font-bold">
-          Cloud security, made actionable.
+        <h1 className="text-3xl font-bold tracking-tight">
+          Analyze a Security Finding
         </h1>
-
-        <p className="mt-3 text-slate-300">
-          Analyze sample cloud findings and understand the
-          recommended next steps.
+        <p className="mt-3 text-gray-600">
+          Submit a synthetic cloud security finding to receive
+          an explanation, verification steps, and prioritized
+          remediation recommendations.
         </p>
+      </header>
 
-        <section className="mt-8 rounded-xl border border-slate-700 bg-slate-900 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm text-slate-400">
-              {finding.service} · {finding.id}
-            </span>
-            <span className="rounded-full bg-red-950 px-3 py-1 text-sm text-red-300">
-              {finding.severity} risk
-            </span>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5 rounded-xl border p-6 shadow-sm"
+      >
+        <div>
+          <label htmlFor="title" className="mb-1 block font-medium">
+            Finding title
+          </label>
+          <input
+            id="title"
+            required
+            maxLength={200}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. IAM role has excessive permissions"
+            className="w-full rounded-md border px-3 py-2"
+          />
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="severity" className="mb-1 block font-medium">
+              Severity
+            </label>
+            <select
+              id="severity"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as Severity)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
           </div>
 
-          <h2 className="mt-5 text-xl font-semibold">
-            {finding.title}
-          </h2>
+          <div>
+            <label htmlFor="service" className="mb-1 block font-medium">
+              AWS service
+            </label>
+            <select
+              id="service"
+              value={service}
+              onChange={(e) => setService(e.target.value)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              <option>AWS IAM</option>
+              <option>Amazon S3</option>
+              <option>AWS CloudTrail</option>
+              <option>Amazon EC2</option>
+              <option>Amazon GuardDuty</option>
+              <option>AWS Security Hub</option>
+              <option>Amazon EKS</option>
+              <option>Other AWS service</option>
+            </select>
+          </div>
+        </div>
 
-          <p className="mt-3 leading-7 text-slate-300">
-            {finding.description}
-          </p>
+        <div>
+          <label htmlFor="id" className="mb-1 block font-medium">
+            Finding ID
+          </label>
+          <input
+            id="id"
+            required
+            maxLength={100}
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            className="w-full rounded-md border px-3 py-2"
+          />
+        </div>
 
-          <button
-            onClick={analyzeFinding}
-            disabled={loading}
-            className="mt-6 rounded-lg bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50"
+        <div>
+          <label
+            htmlFor="description"
+            className="mb-1 block font-medium"
           >
-            {loading ? "Analyzing..." : "Analyze finding with AI"}
-          </button>
+            Finding description
+          </label>
+          <textarea
+            id="description"
+            required
+            minLength={1}
+            maxLength={3000}
+            rows={5}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe the suspected security issue and available evidence..."
+            className="w-full rounded-md border px-3 py-2"
+          />
+          <p className="mt-1 text-sm text-gray-500">
+            Do not include credentials, secrets, or sensitive production data.
+          </p>
+        </div>
 
-          {error && (
-            <p role="alert" className="mt-4 text-red-300">
-              {error}
-            </p>
-          )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-md bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? "Analyzing finding..." : "Analyze Security Finding"}
+        </button>
 
-          {analysis && (
-            <div className="mt-6 whitespace-pre-wrap rounded-lg bg-slate-800 p-5 leading-7 text-slate-100">
-              <h3 className="mb-3 font-semibold text-cyan-300">
-                AI analysis
-              </h3>
-              {analysis}
-            </div>
-          )}
+        {error && (
+          <div role="alert" className="rounded-md bg-red-50 p-4 text-red-800">
+            {error}
+          </div>
+        )}
+      </form>
+
+      {analysis && (
+        <section
+          aria-live="polite"
+          className="mt-8 rounded-xl border p-6"
+        >
+          <h2 className="mb-4 text-xl font-bold">
+            AI Security Analysis
+          </h2>
+          <div className="whitespace-pre-wrap leading-7">
+            {analysis}
+          </div>
+          <p className="mt-5 border-t pt-4 text-sm text-gray-500">
+            AI-generated recommendations require human review.
+            No live AWS environment was inspected by this demo.
+          </p>
         </section>
-
-        <p className="mt-6 text-sm text-slate-500">
-          Portfolio prototype. Uses synthetic findings, not a live
-          cloud security scanner. Recommendations require human review.
-        </p>
-      </div>
+      )}
     </main>
   );
 }
+
 
