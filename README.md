@@ -2,7 +2,7 @@
 
 AI-assisted analysis of cloud security findings: paste in a finding, get a plain-language risk explanation, remediation steps, and how to verify the fix.
 
-**Live demo:** [cloud-security-advisor.vercel.app](https://cloud-security-advisor.vercel.app) (protected by Vercel Authentication, [access on request](#live-demo-access)) · **Stack:** Next.js, Vercel, Vercel AI Gateway · **Status:** working proof of concept
+**Live demo:** [cloud-security-advisor.vercel.app](https://cloud-security-advisor.vercel.app) (protected by Vercel Authentication, [access on request](#live-demo-access)) · **Stack:** Next.js (TypeScript), Vercel AI SDK, Vercel AI Gateway, Zod, Tailwind CSS · **Status:** working proof of concept
 
 ![Cloud Security Advisor screenshot](docs/screenshots/app.png)
 
@@ -61,8 +61,8 @@ flowchart TB
 Solid lines are live today. Dashed boxes are on the roadmap. The browser never sees API keys or calls the model directly; every request goes through the server-side function.
 
 1. The engineer submits a finding (JSON: id, title, severity, service, description).
-2. A server-side Next.js API route builds the analysis prompt. Credentials never reach the browser.
-3. Vercel AI Gateway routes the request to the configured model.
+2. A server-side Next.js route handler validates the finding against a strict Zod schema (required fields, allowed severities, length limits, no extra fields) and rejects malformed JSON with a safe error.
+3. The AI SDK (`generateText`) sends the finding through Vercel AI Gateway to the configured model (currently `openai/gpt-5.2`). Credentials never reach the browser.
 4. The response separates verified facts from assumptions, so the engineer knows what still needs checking.
 
 **Example input**
@@ -98,16 +98,18 @@ Because the app handles infrastructure details, security is part of the design, 
 
 - **Access control:** Vercel Deployment Protection (Vercel Authentication) restricts the app and its API endpoints to authorized users, which also protects AI Gateway usage and cost.
 - **Secrets:** API keys live in Vercel environment variables, server-side only, never committed.
-- **Untrusted input:** finding text is treated as untrusted to reduce prompt-injection risk.
+- **Input validation:** a strict Zod schema enforces required fields, allowed severity values, and length limits, and rejects unknown fields and malformed JSON.
+- **Untrusted input:** the finding is passed to the model as data, and the system prompt tells the model to treat it as untrusted, not as instructions.
+- **Safe errors:** failures return generic messages; details stay in server logs.
 - **Human in the loop:** the app recommends; it never executes infrastructure changes.
 - **Honest output:** responses distinguish verified facts from assumptions.
 
-**Next:** schema validation (Zod), application-level authentication with role-based access (RBAC), rate limiting, audit logging, and prompt-injection test cases.
+**Next:** application-level authentication with role-based access (RBAC), rate limiting, audit logging, and prompt-injection test cases.
 
 ## Roadmap
 
-- **Now:** deployed on Vercel, server-side analysis endpoint, AI Gateway integration, end-to-end test with a synthetic IAM finding.
-- **Next:** input validation, application-level authentication and RBAC, rate limiting, audit logging, automated tests, and latency and cost metrics (p95 latency, tokens and cost per analysis).
+- **Now:** deployed on Vercel, server-side analysis endpoint with Zod validation, AI SDK and AI Gateway integration, end-to-end test with a synthetic IAM finding.
+- **Next:** structured JSON output, application-level authentication and RBAC, rate limiting, audit logging, automated tests, and latency and cost metrics (p95 latency, tokens and cost per analysis).
 - **Later:** pull findings directly from AWS Security Hub, keep finding history in a database, add risk scoring with business context, and suggest infrastructure-as-code fixes for human approval.
 
 ## Limitations
