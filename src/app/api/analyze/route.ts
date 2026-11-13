@@ -14,7 +14,16 @@ const findingSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const body: unknown = await request.json();
+    let body: unknown;
+
+try {
+  body = await request.json();
+} catch {
+  return Response.json(
+    { error: "Invalid JSON request body." },
+    { status: 400 }
+  );
+}
     const parsed = findingSchema.safeParse(body);
 
     if (!parsed.success) {
