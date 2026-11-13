@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cloud Security Advisor
 
-## Getting Started
+AI-assisted analysis of cloud security findings: paste in a finding, get a plain-language risk explanation, remediation steps, and how to verify the fix.
 
-First, run the development server:
+**Live demo:** [cloud-security-advisor.vercel.app](https://cloud-security-advisor.vercel.app) · **Stack:** Next.js, Vercel, Vercel AI Gateway · **Status:** working proof of concept
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+![Cloud Security Advisor screenshot](docs/screenshots/app.png)
+
+## Why I built it
+
+Tools like AWS Security Hub, GuardDuty, and AWS Config generate hundreds of findings. Teams struggle to decide what matters, and fixing an IAM, network, or encryption finding takes specialist knowledge. In my work as an AWS Solutions Architect, I saw this slow down remediation for many customers.
+
+Cloud Security Advisor turns a raw finding into consistent, decision-ready guidance. A human engineer always makes the final call.
+
+## How it works
+
+```mermaid
+flowchart TB
+    user["👤 Security engineer"]
+    aws["AWS Security Hub · GuardDuty · Config<br/><i>planned: import findings</i>"]
+
+    subgraph vercel["Vercel platform"]
+        edge["Edge Network<br/>TLS · CDN · Firewall / WAF"]
+        ui["Next.js frontend<br/>submit finding · review analysis"]
+        api["Server-side API · /api/analyze<br/>(Vercel Function)<br/>① validate input &nbsp;② auth + rate limit (planned) &nbsp;③ build prompt, finding treated as untrusted"]
+        env[("Env variables<br/>API keys, server-side only")]
+        gw["AI Gateway<br/>model routing · fallbacks · usage and cost"]
+        obs["Observability<br/>logs · latency · tokens"]
+    end
+
+    llm["AI model provider"]
+    db[("Database<br/>finding history · audit trail")]
+
+    user -->|submits finding| edge --> ui --> api
+    aws -.-> api
+    env -.-> api
+    api --> gw --> llm
+    llm -->|"structured analysis: risk · remediation · how to verify"| api
+    api --> ui
+    ui -->|human review before any change| user
+    api -.-> obs
+    api -.-> db
+
+    classDef planned stroke-dasharray: 5 5,fill:#f6f6f6,color:#555
+    class aws,db,obs planned
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Solid lines are live today. Dashed boxes are on the roadmap. The browser never sees API keys or calls the model directly; every request goes through the server-side function.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. The engineer submits a finding (JSON: id, title, severity, service, description).
+2. A server-side Next.js API route builds the analysis prompt. Credentials never reach the browser.
+3. Vercel AI Gateway routes the request to the configured model.
+4. The response separates verified facts from assumptions, so the engineer knows what still needs checking.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Example input**
 
-## Learn More
+```json
+{
+  "id": "TEST-002",
+  "title": "IAM role has excessive permissions",
+  "severity": "High",
+  "service": "AWS IAM",
+  "description": "A synthetic IAM role may have permissions broader than required."
+}
+```
 
-To learn more about Next.js, take a look at the following resources:
+Tested end to end with this synthetic finding. The analysis correctly flagged the limits of the evidence provided instead of guessing.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Why Vercel instead of a custom AWS stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The same app on AWS would mean wiring together CloudFront, S3, Lambda, API Gateway, IAM, Secrets Manager, CloudWatch, and Route 53. For an early-stage AI app, that is a lot of infrastructure work before the first useful result.
 
-## Deploy on Vercel
+| | Vercel | Custom AWS stack |
+| --- | --- | --- |
+| Time to first deploy | Minutes | Days of setup |
+| Git workflow | Preview URL per pull request, built in | Pipeline to design |
+| Model access | AI Gateway: one API, many providers | Custom integration per provider |
+| Low-level control | More abstracted | Fully configurable |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Decision:** Vercel let me spend my time on analysis quality and security design rather than plumbing. I'd revisit AWS-native hosting if the app needed private networking into customer VPCs or deep integration with AWS services. The likely end state is hybrid: Vercel for the app and AI layer, AWS for the customer's data and findings.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Security design
+
+Because the app handles infrastructure details, security is part of the design, not an afterthought.
+
+- **Secrets:** API keys live in Vercel environment variables, server-side only, never committed.
+- **Untrusted input:** finding text is treated as untrusted to reduce prompt-injection risk.
+- **Human in the loop:** the app recommends; it never executes infrastructure changes.
+- **Honest output:** responses distinguish verified facts from assumptions.
+
+**Next:** schema validation (Zod), authentication with role-based access, rate limiting, and prompt-injection test cases.
+
+## Roadmap
+
+- **Now:** deployed on Vercel, server-side analysis endpoint, AI Gateway integration, end-to-end test with a synthetic IAM finding.
+- **Next:** input validation, authentication, rate limiting, automated tests, and latency and cost metrics (p95 latency, tokens and cost per analysis).
+- **Later:** pull findings directly from AWS Security Hub, keep finding history in a database, add risk scoring with business context, and suggest infrastructure-as-code fixes for human approval.
+
+## Limitations
+
+This is a decision-support prototype. It does not inspect live AWS resources, judge business impact without context, or remediate anything automatically. Every recommendation should be validated by a qualified engineer.
+
+## About me
+
+Built by Kayode (Kay) Edoun, CISSP, former AWS Solutions Architect. [LinkedIn](https://linkedin.com/in/kayode-edoun/)

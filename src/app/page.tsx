@@ -66,7 +66,7 @@ export default function Home() {
           Analyze a Security Finding
         </h1>
         <p className="mt-3 text-gray-600">
-          Submit a synthetic cloud security finding to receive
+          Kindly submit a synthetic cloud security finding to receive
           an explanation, verification steps, and prioritized
           remediation recommendations.
         </p>
