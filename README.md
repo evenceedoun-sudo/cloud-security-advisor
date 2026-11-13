@@ -2,9 +2,22 @@
 
 AI-assisted analysis of cloud security findings: paste in a finding, get a plain-language risk explanation, remediation steps, and how to verify the fix.
 
-**Live demo:** [cloud-security-advisor.vercel.app](https://cloud-security-advisor.vercel.app) · **Stack:** Next.js, Vercel, Vercel AI Gateway · **Status:** working proof of concept
+**Live demo:** [cloud-security-advisor.vercel.app](https://cloud-security-advisor.vercel.app) (protected by Vercel Authentication, [access on request](#live-demo-access)) · **Stack:** Next.js, Vercel, Vercel AI Gateway · **Status:** working proof of concept
 
 ![Cloud Security Advisor screenshot](docs/screenshots/app.png)
+
+## Live demo access
+
+The demo is protected with Vercel Authentication, which limits access to the app and its API endpoints and keeps the AI Gateway from being used by anyone who finds the URL.
+
+To try it:
+
+1. Open the [live demo](https://cloud-security-advisor.vercel.app).
+2. Sign in with your Vercel account.
+3. If you see an access-restricted page, request access there or [contact me](https://linkedin.com/in/kayode-edoun/) for an invitation. Signing in alone does not grant access; your account must be authorized.
+4. Once you're in, submit one of the sample findings and review the analysis.
+
+The demo uses synthetic security findings only. It does not connect to a live AWS environment.
 
 ## Why I built it
 
@@ -83,17 +96,18 @@ The same app on AWS would mean wiring together CloudFront, S3, Lambda, API Gatew
 
 Because the app handles infrastructure details, security is part of the design, not an afterthought.
 
+- **Access control:** Vercel Deployment Protection (Vercel Authentication) restricts the app and its API endpoints to authorized users, which also protects AI Gateway usage and cost.
 - **Secrets:** API keys live in Vercel environment variables, server-side only, never committed.
 - **Untrusted input:** finding text is treated as untrusted to reduce prompt-injection risk.
 - **Human in the loop:** the app recommends; it never executes infrastructure changes.
 - **Honest output:** responses distinguish verified facts from assumptions.
 
-**Next:** schema validation (Zod), authentication with role-based access, rate limiting, and prompt-injection test cases.
+**Next:** schema validation (Zod), application-level authentication with role-based access (RBAC), rate limiting, audit logging, and prompt-injection test cases.
 
 ## Roadmap
 
 - **Now:** deployed on Vercel, server-side analysis endpoint, AI Gateway integration, end-to-end test with a synthetic IAM finding.
-- **Next:** input validation, authentication, rate limiting, automated tests, and latency and cost metrics (p95 latency, tokens and cost per analysis).
+- **Next:** input validation, application-level authentication and RBAC, rate limiting, audit logging, automated tests, and latency and cost metrics (p95 latency, tokens and cost per analysis).
 - **Later:** pull findings directly from AWS Security Hub, keep finding history in a database, add risk scoring with business context, and suggest infrastructure-as-code fixes for human approval.
 
 ## Limitations
