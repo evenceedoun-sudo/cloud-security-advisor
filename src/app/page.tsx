@@ -1,7 +1,8 @@
-
+// Copyright 2026 geksevence
 "use client";
 
 import { useState } from "react";
+import type { Analysis } from "@/lib/analysis";
 
 type Severity = "Critical" | "High" | "Medium" | "Low";
 
@@ -11,7 +12,7 @@ export default function Home() {
   const [service, setService] = useState("AWS IAM");
   const [id, setId] = useState("TEST-001");
   const [description, setDescription] = useState("");
-  const [analysis, setAnalysis] = useState("");
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +20,7 @@ export default function Home() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setAnalysis("");
+    setAnalysis(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -40,7 +41,7 @@ export default function Home() {
         throw new Error(data.error || "Analysis failed.");
       }
 
-      if (typeof data.analysis !== "string") {
+      if (!data.analysis || typeof data.analysis.summary !== "string") {
         throw new Error("The server returned an unexpected response.");
       }
 
@@ -66,7 +67,7 @@ export default function Home() {
           Analyze a Security Finding
         </h1>
         <p className="mt-3 text-gray-600">
-          Kindly submit a synthetic cloud security finding to receive
+          Submit a synthetic cloud security finding to receive
           an explanation, verification steps, and prioritized
           remediation recommendations.
         </p>
@@ -184,17 +185,60 @@ export default function Home() {
       </form>
 
       {analysis && (
-        <section
-          aria-live="polite"
-          className="mt-8 rounded-xl border p-6"
-        >
-          <h2 className="mb-4 text-xl font-bold">
-            AI Security Analysis
-          </h2>
-          <div className="whitespace-pre-wrap leading-7">
-            {analysis}
+        <section aria-live="polite" className="mt-8 space-y-6 rounded-xl border p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-bold">AI Security Analysis</h2>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${riskStyles[analysis.assessedRisk]}`}
+            >
+              Assessed risk: {analysis.assessedRisk}
+            </span>
           </div>
-          <p className="mt-5 border-t pt-4 text-sm text-gray-500">
+
+          <p className="leading-7">{analysis.summary}</p>
+          <p className="text-sm text-gray-600">{analysis.riskRationale}</p>
+
+          <List title="Potential impact" items={analysis.potentialImpact} />
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            <List title="Verified from the finding" items={analysis.verifiedFacts} />
+            <List title="Assumptions to confirm" items={analysis.assumptions} />
+          </div>
+
+          {analysis.evidenceToVerify.length > 0 && (
+            <div>
+              <h3 className="mb-2 font-semibold">Evidence to verify</h3>
+              <ul className="space-y-2">
+                {analysis.evidenceToVerify.map((item, i) => (
+                  <li key={i} className="rounded-md bg-gray-50 p-3">
+                    <p className="font-medium">{item.check}</p>
+                    <p className="mt-1 font-mono text-sm text-gray-700 break-words">{item.howTo}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <h3 className="mb-2 font-semibold">Remediation steps (in priority order)</h3>
+            <ol className="space-y-3">
+              {analysis.remediationSteps.map((step, i) => (
+                <li key={i} className="rounded-md border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-medium">
+                      {i + 1}. {step.action}
+                    </p>
+                    <span className="shrink-0 text-xs text-gray-500">Effort: {step.effort}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">{step.rationale}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <List title="How to confirm the fix" items={analysis.validationSteps} />
+
+          <p className="border-t pt-4 text-sm text-gray-500">
             AI-generated recommendations require human review.
             No live AWS environment was inspected by this demo.
           </p>
@@ -205,3 +249,24 @@ export default function Home() {
 }
 
 
+
+const riskStyles: Record<Analysis["assessedRisk"], string> = {
+  Critical: "bg-red-100 text-red-800",
+  High: "bg-orange-100 text-orange-800",
+  Medium: "bg-yellow-100 text-yellow-800",
+  Low: "bg-green-100 text-green-800",
+};
+
+function List({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <ul className="list-disc space-y-1 pl-5">
+        {items.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
