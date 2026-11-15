@@ -59,6 +59,7 @@
        model: MODEL,
        system: SYSTEM_PROMPT,
        prompt: `Analyze this finding:\n${JSON.stringify(parsed.data)}`,
+       providerOptions: { openai: { reasoningEffort: "low" } },
        output: Output.object({
          name: "security_finding_analysis",
          schema: analysisSchema,
@@ -70,6 +71,7 @@
      console.log("analysis", {
        findingId: parsed.data.id,
        model: MODEL,
+       reasoningEffort: "low",
        ms,
        inputTokens: result.usage.inputTokens,
        outputTokens: result.usage.outputTokens,
