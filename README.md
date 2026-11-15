@@ -105,7 +105,7 @@ Manual tests run on the deployed Vercel app (November 2026), covering four AWS s
 | TEST-003 | CloudTrail may not capture all management events (AWS CloudTrail) | Medium    | **Medium**    | Agreed: a logging gap weakens detection and audit evidence but is not itself an exposure. Gave five verification checks and five fixes.                              |
 | TEST-004 | EC2 instance missing Owner and Environment tags (Amazon EC2)      | Low       | **Low**       | Classified it as a governance issue, not a vulnerability, and focused on tagging policies to prevent recurrence.                                                     |
 | TEST-005 | Junk input: title "Hello," description "hi" (Amazon EC2)          | Low       | **Low**       | Said there was nothing actionable and recommended fixing the source of the finding. It did not invent a vulnerability.                                               |
-| TEST-006 | Missing required field (empty title)                              | n/a       | Not submitted | Blocked in the browser. The server enforces the same rules with Zod, so the API rejects it even if the form is bypassed.                                             |
+| TEST-006 | Missing required field: client-side validation, no analysis       | n/a       | Not submitted | Blocked in the browser. The server enforces the same rules with Zod, so the API rejects it even if the form is bypassed.                                             |
 
 <details>
 <summary><strong>View test screenshots</strong> (full-length results; click to expand)</summary>
