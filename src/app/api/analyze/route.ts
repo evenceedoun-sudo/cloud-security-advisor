@@ -1,4 +1,4 @@
-// / Copyright 2026: Kayode Edoun
+// Copyright 2026 Kayode Edoun
 
 /**
  * POST /api/analyze — server-side analysis endpoint.

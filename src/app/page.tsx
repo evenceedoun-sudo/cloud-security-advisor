@@ -1,4 +1,4 @@
-// Copyright 2026: Kayode Edoun
+// Copyright 2026 Kayode Edoun
 "use client";
 
 import { useState } from "react";

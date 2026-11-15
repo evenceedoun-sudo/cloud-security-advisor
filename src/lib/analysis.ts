@@ -1,6 +1,6 @@
-// / Copyright 2026: Kayode Edoun
-// This is the shared definitions(schemas) of what a user can submit and what the model must return.
-// The API route and the page both use the Analysis type from this one file.
+// Copyright 2026 Kayode Edoun
+// Shared schemas: what a user can submit and what the model must return.
+// Used by both the API route and the page, so they can stay in sync.
 
 import { z } from "zod";
 
