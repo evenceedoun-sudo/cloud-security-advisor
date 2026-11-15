@@ -1,4 +1,4 @@
-// Copyright 2026 geksevence
+// Copyright 2026: Kayode Edoun
 "use client";
 
 import { useState } from "react";
@@ -48,9 +48,7 @@ export default function Home() {
       setAnalysis(data.analysis);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to analyze this finding."
+        err instanceof Error ? err.message : "Unable to analyze this finding."
       );
     } finally {
       setLoading(false);
@@ -67,9 +65,8 @@ export default function Home() {
           Analyze a Security Finding
         </h1>
         <p className="mt-3 text-gray-600">
-          Submit a synthetic cloud security finding to receive
-          an explanation, verification steps, and prioritized
-          remediation recommendations.
+          Submit a synthetic cloud security finding to receive an explanation,
+          verification steps, and prioritized remediation recommendations.
         </p>
       </header>
 
@@ -147,10 +144,7 @@ export default function Home() {
         </div>
 
         <div>
-          <label
-            htmlFor="description"
-            className="mb-1 block font-medium"
-          >
+          <label htmlFor="description" className="mb-1 block font-medium">
             Finding description
           </label>
           <textarea
@@ -185,11 +179,16 @@ export default function Home() {
       </form>
 
       {analysis && (
-        <section aria-live="polite" className="mt-8 space-y-6 rounded-xl border p-6">
+        <section
+          aria-live="polite"
+          className="mt-8 space-y-6 rounded-xl border p-6"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold">AI Security Analysis</h2>
             <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${riskStyles[analysis.assessedRisk]}`}
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                riskStyles[analysis.assessedRisk]
+              }`}
             >
               Assessed risk: {analysis.assessedRisk}
             </span>
@@ -201,7 +200,10 @@ export default function Home() {
           <List title="Potential impact" items={analysis.potentialImpact} />
 
           <div className="grid gap-6 sm:grid-cols-2">
-            <List title="Verified from the finding" items={analysis.verifiedFacts} />
+            <List
+              title="Verified from the finding"
+              items={analysis.verifiedFacts}
+            />
             <List title="Assumptions to confirm" items={analysis.assumptions} />
           </div>
 
@@ -212,7 +214,9 @@ export default function Home() {
                 {analysis.evidenceToVerify.map((item, i) => (
                   <li key={i} className="rounded-md bg-gray-50 p-3">
                     <p className="font-medium">{item.check}</p>
-                    <p className="mt-1 font-mono text-sm text-gray-700 break-words">{item.howTo}</p>
+                    <p className="mt-1 font-mono text-sm text-gray-700 break-words">
+                      {item.howTo}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -220,7 +224,9 @@ export default function Home() {
           )}
 
           <div>
-            <h3 className="mb-2 font-semibold">Remediation steps (in priority order)</h3>
+            <h3 className="mb-2 font-semibold">
+              Remediation steps (in priority order)
+            </h3>
             <ol className="space-y-3">
               {analysis.remediationSteps.map((step, i) => (
                 <li key={i} className="rounded-md border p-3">
@@ -228,7 +234,9 @@ export default function Home() {
                     <p className="font-medium">
                       {i + 1}. {step.action}
                     </p>
-                    <span className="shrink-0 text-xs text-gray-500">Effort: {step.effort}</span>
+                    <span className="shrink-0 text-xs text-gray-500">
+                      Effort: {step.effort}
+                    </span>
                   </div>
                   <p className="mt-1 text-sm text-gray-600">{step.rationale}</p>
                 </li>
@@ -236,19 +244,20 @@ export default function Home() {
             </ol>
           </div>
 
-          <List title="How to confirm the fix" items={analysis.validationSteps} />
+          <List
+            title="How to confirm the fix"
+            items={analysis.validationSteps}
+          />
 
           <p className="border-t pt-4 text-sm text-gray-500">
-            AI-generated recommendations require human review.
-            No live AWS environment was inspected by this demo.
+            AI-generated recommendations require human review. No live AWS
+            environment was inspected by this demo.
           </p>
         </section>
       )}
     </main>
   );
 }
-
-
 
 const riskStyles: Record<Analysis["assessedRisk"], string> = {
   Critical: "bg-red-100 text-red-800",
