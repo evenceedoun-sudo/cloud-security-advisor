@@ -107,10 +107,44 @@ Manual tests run on the deployed Vercel app (November 2026), covering four AWS s
 | TEST-005 | Junk input: title "Hello," description "hi" (Amazon EC2)          | Low       | **Low**       | Said there was nothing actionable and recommended fixing the source of the finding. It did not invent a vulnerability.                                               |
 | TEST-006 | Missing required field (empty title)                              | n/a       | Not submitted | Blocked in the browser. The server enforces the same rules with Zod, so the API rejects it even if the form is bypassed.                                             |
 
-![S3 finding submitted as Critical, assessed High](docs/screenshots/test-s3-finding.png)
-![Junk input rated Low](docs/screenshots/test-junk-input.png)
+<details>
+<summary><strong>View test screenshots</strong> (full-length results; click to expand)</summary>
+<br>
 
-More screenshots: [IAM](docs/screenshots/test-iam-finding.png) · [CloudTrail](docs/screenshots/test-cloudtrail-finding.png) · [EC2 tagging](docs/screenshots/test-EC2-finding.png) · [required field](docs/screenshots/test-required-field.png)
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/test-s3-finding.png"><img src="docs/screenshots/test-s3-finding.png" width="240" alt="S3 finding submitted as Critical, assessed High"></a><br>
+      <sub><b>TEST-001</b> S3: Critical → High</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/test-iam-finding.png"><img src="docs/screenshots/test-iam-finding.png" width="240" alt="IAM finding assessed High"></a><br>
+      <sub><b>TEST-002</b> IAM: High → High</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/test-cloudtrail-finding.png"><img src="docs/screenshots/test-cloudtrail-finding.png" width="240" alt="CloudTrail finding assessed Medium"></a><br>
+      <sub><b>TEST-003</b> CloudTrail: Medium → Medium</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <a href="docs/screenshots/test-EC2-finding.png"><img src="docs/screenshots/test-EC2-finding.png" width="240" alt="EC2 tagging finding assessed Low"></a><br>
+      <sub><b>TEST-004</b> EC2 tags: Low → Low</sub>
+    </td>
+    <td align="center" valign="top">
+      <a href="docs/screenshots/test-junk-input.png"><img src="docs/screenshots/test-junk-input.png" width="240" alt="Junk input rated Low"></a><br>
+      <sub><b>TEST-005</b> Junk input: Low</sub>
+    </td>
+    <td align="center" valign="top">
+      <a href="docs/screenshots/test-required-field.png"><img src="docs/screenshots/test-required-field.png" width="240" alt="Empty title blocked by the browser"></a><br>
+      <sub><b>TEST-006</b> Required field blocked</sub>
+    </td>
+  </tr>
+</table>
+
+Click any screenshot to open it at full size.
+
+</details>
 
 **What I learned**
 
@@ -134,7 +168,13 @@ Run in November 2026. The validation tests call the API directly with `curl`, by
 
 Error responses are generic by design; validation details are not echoed back to the caller.
 
-![Prompt-injection attempt ignored](docs/screenshots/test-prompt-injection.png)
+<details>
+<summary><strong>View prompt-injection screenshot</strong></summary>
+<br>
+<p align="center">
+  <a href="docs/screenshots/test-prompt-injection.png"><img src="docs/screenshots/test-prompt-injection.png" width="300" alt="Prompt-injection attempt ignored; analysis rated Medium"></a>
+</p>
+</details>
 
 ## Performance
 
