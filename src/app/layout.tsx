@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Cloud Security Advisor",
-  description: "takes cloud security findings through a form and returns AI-assisted analysis and remediation guidance through an API endpoint.",
+  description: "AI-assisted analysis and remediation guidance for cloud security findings",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
