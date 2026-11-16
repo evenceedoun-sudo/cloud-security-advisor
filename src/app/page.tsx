@@ -3,8 +3,32 @@
 
 import { useEffect, useState } from "react";
 import type { Analysis } from "@/lib/analysis";
+import { sampleFindings } from "@/lib/samples";
 
 type Severity = "Critical" | "High" | "Medium" | "Low";
+
+// Stop waiting after this long so the page never spins forever.
+const CLIENT_TIMEOUT_MS = 60_000;
+
+// Turn an HTTP failure into a message a reviewer can act on.
+function messageForStatus(status: number, serverMessage?: string): string {
+  if (serverMessage) return serverMessage;
+  switch (status) {
+    case 401:
+    case 403:
+      return "Your session has expired or you don't have access. Reload the page and sign in to Vercel again.";
+    case 413:
+      return "The finding is too large. Shorten the description and try again.";
+    case 429:
+      return "Too many requests. Wait a moment and try again.";
+    case 504:
+      return "The analysis timed out. Please try again.";
+    default:
+      return status >= 500
+        ? "The analysis service is temporarily unavailable. Please try again."
+        : "The request could not be processed. Check the fields and try again.";
+  }
+}
 
 export default function Home() {
   const [title, setTitle] = useState("");
@@ -17,19 +41,40 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   // Seconds since the current analysis started, shown while the model works.
   const [elapsed, setElapsed] = useState(0);
+  // Severity that was submitted with the analysed finding, shown next to the assessed risk.
+  const [submittedSeverity, setSubmittedSeverity] = useState<Severity | null>(
+    null,
+  );
+  const [durationMs, setDurationMs] = useState<number | null>(null);
+
+  function loadSample(index: number) {
+    const { finding } = sampleFindings[index];
+    setId(finding.id);
+    setTitle(finding.title);
+    setSeverity(finding.severity);
+    setService(finding.service);
+    setDescription(finding.description);
+    setAnalysis(null);
+    setError("");
+  }
 
   useEffect(() => {
     if (!loading) return;
-    setElapsed(0);
     const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, [loading]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setElapsed(0);
     setLoading(true);
     setError("");
     setAnalysis(null);
+    setDurationMs(null);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+    const started = Date.now();
 
     try {
       const response = await fetch("/api/analyze", {
@@ -42,24 +87,50 @@ export default function Home() {
           id,
           description,
         }),
+        signal: controller.signal,
       });
 
-      const data = await response.json();
+      // Error pages from the platform (expired login, timeouts) may not be JSON.
+      let data: { error?: string; analysis?: Analysis } | null = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Analysis failed.");
+        throw new Error(messageForStatus(response.status, data?.error));
       }
 
-      if (!data.analysis || typeof data.analysis.summary !== "string") {
-        throw new Error("The server returned an unexpected response.");
+      if (!data?.analysis || typeof data.analysis.summary !== "string") {
+        throw new Error(
+          "The server returned an unexpected response. Please try again.",
+        );
       }
 
+      setSubmittedSeverity(severity);
+      setDurationMs(Date.now() - started);
       setAnalysis(data.analysis);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to analyze this finding."
-      );
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError(
+          "The analysis took longer than 60 seconds and was stopped. Please try again.",
+        );
+      } else if (err instanceof TypeError) {
+        // fetch throws TypeError on network failure, and also when an expired
+        // Vercel sign-in redirects the API call to the login page.
+        setError(
+          "Couldn't reach the server. Check your connection, or reload the page in case your Vercel sign-in expired.",
+        );
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to analyze this finding.",
+        );
+      }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }
@@ -83,6 +154,25 @@ export default function Home() {
         onSubmit={handleSubmit}
         className="space-y-5 rounded-xl border p-6 shadow-sm"
       >
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">
+            Try a sample finding
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sampleFindings.map((sample, i) => (
+              <button
+                key={sample.label}
+                type="button"
+                disabled={loading}
+                onClick={() => loadSample(i)}
+                className="rounded-full border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-60"
+              >
+                {sample.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <label htmlFor="title" className="mb-1 block font-medium">
             Finding title
@@ -199,8 +289,17 @@ export default function Home() {
         )}
 
         {error && (
-          <div role="alert" className="rounded-md bg-red-50 p-4 text-red-800">
-            {error}
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-3 rounded-md bg-red-50 p-4 text-red-800"
+          >
+            <span>{error}</span>
+            <button
+              type="submit"
+              className="shrink-0 text-sm font-semibold underline"
+            >
+              Try again
+            </button>
           </div>
         )}
       </form>
@@ -211,15 +310,44 @@ export default function Home() {
           className="mt-8 space-y-6 rounded-xl border p-6"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-bold">AI Security Analysis</h2>
-            <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                riskStyles[analysis.assessedRisk]
-              }`}
-            >
-              Assessed risk: {analysis.assessedRisk}
-            </span>
+            <div>
+              <h2 className="text-xl font-bold">AI Security Analysis</h2>
+              {durationMs !== null && (
+                <p className="text-xs text-gray-500">
+                  Completed in {(durationMs / 1000).toFixed(1)} s
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {submittedSeverity && (
+                <>
+                  <span
+                    className={`rounded-full px-3 py-1 font-semibold opacity-70 ${riskStyles[submittedSeverity]}`}
+                  >
+                    Submitted: {submittedSeverity}
+                  </span>
+                  <span aria-hidden="true" className="text-gray-400">
+                    →
+                  </span>
+                </>
+              )}
+              <span
+                className={`rounded-full px-3 py-1 font-semibold ${
+                  riskStyles[analysis.assessedRisk]
+                }`}
+              >
+                Assessed risk: {analysis.assessedRisk}
+              </span>
+            </div>
           </div>
+
+          {submittedSeverity && submittedSeverity !== analysis.assessedRisk && (
+            <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-900">
+              The advisor rated this finding{" "}
+              <strong>{analysis.assessedRisk}</strong> instead of the submitted{" "}
+              <strong>{submittedSeverity}</strong>. See the rationale below.
+            </p>
+          )}
 
           <p className="leading-7">{analysis.summary}</p>
           <p className="text-sm text-gray-600">{analysis.riskRationale}</p>

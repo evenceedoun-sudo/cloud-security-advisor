@@ -15,7 +15,7 @@ To try it:
 1. Open the [live demo](https://cloud-security-advisor.vercel.app).
 2. Sign in with your Vercel account.
 3. If you see an access-restricted page, request access there or [contact me](https://linkedin.com/in/kayode-edoun/) for an invitation. Signing in alone does not grant access; your account must be authorized.
-4. Once you're in, submit one of the sample findings and review the analysis.
+4. Once you're in, click one of the **sample findings** above the form (S3, IAM, CloudTrail, EC2, or Prompt injection), then **Analyze Security Finding**. The result shows the submitted severity next to the advisor's assessed risk.
 
 The demo uses synthetic security findings only. It does not connect to a live AWS environment.
 
@@ -38,7 +38,7 @@ flowchart TB
         api["Server-side API · /api/analyze<br/>(Vercel Function)<br/>① validate input &nbsp;② auth + rate limit (planned) &nbsp;③ build prompt, finding treated as untrusted"]
         env[("Env variables<br/>API keys, server-side only")]
         gw["AI Gateway<br/>model routing · fallbacks · usage and cost"]
-        obs["Observability<br/>logs · latency · tokens"]
+        obs["Observability<br/>logs · latency · tokens<br/><i>basic logs live; dashboards planned</i>"]
     end
 
     llm["AI model provider"]
@@ -60,10 +60,10 @@ flowchart TB
 
 Solid lines are live today. Dashed boxes are on the roadmap. The browser never sees API keys or calls the model directly; every request goes through the server-side function.
 
-1. The engineer submits a finding (JSON: id, title, severity, service, description). While the analysis runs, the page shows a spinner, an elapsed-seconds counter, and the expected wait (about 15 seconds).
+1. The engineer submits a finding (JSON: id, title, severity, service, description), typed in or loaded with one click from a sample. While the analysis runs, the page shows a spinner, an elapsed-seconds counter, and the expected wait (about 15 seconds). Requests stop after 60 seconds with a clear message and a **Try again** button.
 2. A server-side Next.js route handler validates the finding against a strict Zod schema (required fields, allowed severities, length limits, no extra fields) and rejects malformed JSON with a safe error.
 3. The AI SDK (`generateText`) sends the finding through Vercel AI Gateway to the configured model (currently `openai/gpt-5.2`, low reasoning effort, output capped at 4,000 tokens). Credentials never reach the browser.
-4. The response separates verified facts from assumptions, so the engineer knows what still needs checking.
+4. The response separates verified facts from assumptions, so the engineer knows what still needs checking. The page shows the submitted severity next to the assessed risk (for example `Submitted: Critical → Assessed risk: High`) and flags when the advisor re-rated the finding.
 
 **Example input**
 
@@ -168,6 +168,40 @@ Run in November 2026. The validation tests call the API directly with `curl`, by
 
 Error responses are generic by design; validation details are not echoed back to the caller.
 
+### Reproduce the API tests
+
+Run the app locally (`npm run build && npm start`), then:
+
+```bash
+URL=http://localhost:3000/api/analyze
+
+# 1. Invalid severity → 400 Invalid finding
+curl -s -w ' %{http_code}\n' -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"id":"T1","title":"t","severity":"Urgent","service":"AWS IAM","description":"d"}'
+
+# 2. Missing required field (no description) → 400 Invalid finding
+curl -s -w ' %{http_code}\n' -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"id":"T2","title":"t","severity":"High","service":"AWS IAM"}'
+
+# 3. Unexpected field → 400 Invalid finding (strict schema)
+curl -s -w ' %{http_code}\n' -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"id":"T3","title":"t","severity":"High","service":"AWS IAM","description":"d","admin":true}'
+
+# 4. Malformed JSON → 400 Invalid JSON request body
+curl -s -w ' %{http_code}\n' -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"title": "broken",'
+
+# 5. Oversized body (20 KB, limit 10 KB) → 413 Request is too large
+python3 -c 'import json;print(json.dumps({"id":"T5","title":"t","severity":"Low","service":"AWS IAM","description":"x"*20000}))' > /tmp/big.json
+curl -s -w ' %{http_code}\n' -X POST $URL -H 'Content-Type: application/json' --data-binary @/tmp/big.json
+
+# 6. Unauthenticated request to the live deployment → 401 from Vercel Deployment Protection
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://cloud-security-advisor.vercel.app/api/analyze \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+Tests 1–5 are rejected before the model is called, so they cost nothing. To repeat the prompt-injection test, click the **Prompt injection** sample in the UI.
+
 <details>
 <summary><strong>View prompt-injection screenshot</strong></summary>
 <br>
@@ -228,18 +262,32 @@ Because the app handles infrastructure details, security is part of the design, 
 
 - **Access control:** Vercel Deployment Protection (Vercel Authentication) restricts the app and its API endpoints to authorized users, which also protects AI Gateway usage and cost.
 - **Secrets:** API keys live in Vercel environment variables, server-side only, never committed.
-- **Input validation:** a strict Zod schema enforces required fields, allowed severity values, and length limits, and rejects unknown fields and malformed JSON.
-- **Untrusted input:** the finding is passed to the model as data, and the system prompt tells the model to treat it as untrusted, not as instructions.
-- **Safe errors:** failures return generic messages; details stay in server logs.
+- **Input validation:** a strict Zod schema enforces required fields, allowed severity values, and length limits, and rejects unknown fields and malformed JSON. Bodies over 10 KB are rejected using both the `Content-Length` header and the actual body size, so a request without the header can't skip the check.
+- **Untrusted input (prompt injection):** the finding is passed to the model as data, and the system prompt tells the model to treat it as untrusted, not as instructions. See [where the prompt-injection controls live](#where-the-prompt-injection-controls-live).
+- **Safe errors:** failures return generic messages; details stay in server logs. The page turns each failure into a message the user can act on (expired sign-in, timeout, oversized input, usage limit, network failure) and offers a retry.
 - **Cost controls (three layers):** Vercel Authentication keeps unknown users out; `maxOutputTokens` caps every request at 4,000 tokens (typical use is about 990); and an AI Gateway project budget sets a hard monthly ceiling with email alerts at 50%, 75%, and 100%. If the budget is reached, the app returns a clear "usage limit reached" message (503) instead of a generic failure.
 - **Human in the loop:** the app recommends; it never executes infrastructure changes.
 - **Structured, honest output:** the model must return a schema-validated object that separates verified facts from assumptions; malformed responses are rejected with a clean error.
+
+### Where the prompt-injection controls live
+
+There is no single filter; the defense is layered, and each layer limits what a successful injection could do.
+
+| Layer                           | Where                                                                             | What it does                                                                                                                                                                                    |
+| ------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| System prompt                   | `src/app/api/analyze/route.ts` (`SYSTEM_PROMPT`)                                  | Tells the model the finding is untrusted data, to ignore instructions inside it, never to claim it inspected AWS, and to list only stated facts as verified.                                    |
+| Separate instructions from data | `route.ts` (`generateText` call)                                                  | Instructions go in `system`; the finding goes in `prompt` as `JSON.stringify(parsed.data)`, so user text arrives as a quoted JSON value.                                                        |
+| Schema-constrained output       | `route.ts` (`Output.object`) and `analysisSchema` in `src/lib/analysis.ts`        | The model must return a fixed object (risk limited to Critical/High/Medium/Low, capped list lengths). An injection can't change the response shape; non-matching output is rejected with a 502. |
+| Strict input                    | `findingSchema` in `src/lib/analysis.ts`, plus the 10 KB body limit in `route.ts` | `.strict()` rejects unknown fields; length caps limit how much injected text fits.                                                                                                              |
+| No capabilities                 | Whole app                                                                         | The model has no tools, AWS credentials, or write access, and a human reviews every result.                                                                                                     |
+
+**Known gaps:** the first two layers are instructions to the model, so they reduce the risk rather than eliminate it; nothing yet checks the output for signs of injection (for example, a rating that matches an instruction in the input); and injection has been tested with one case, not a suite.
 
 **Next:** application-level authentication with role-based access (RBAC), rate limiting, audit logging, and a larger automated set of prompt-injection cases.
 
 ## Roadmap
 
-- **Now:** deployed on Vercel, server-side analysis endpoint with Zod validation, AI SDK and AI Gateway integration, structured JSON output validated against a Zod schema and rendered by section, loading timer, cost guardrails (token cap and AI Gateway budget), functional, security, and performance tests on the live deployment.
+- **Now:** deployed on Vercel, server-side analysis endpoint with Zod validation, AI SDK and AI Gateway integration, structured JSON output validated against a Zod schema and rendered by section, loading timer, one-click sample findings, submitted vs. assessed severity side by side, status-specific error messages with retry and a 60-second client timeout, cost guardrails (token cap and AI Gateway budget), functional, security, and performance tests on the live deployment.
 - **Next:** an automated test set of sample findings with expected ratings (including more prompt-injection cases), application-level authentication and RBAC, rate limiting, audit logging, streaming responses, and a speed, cost, and quality comparison across models through AI Gateway.
 - **Later:** pull findings directly from AWS Security Hub, keep finding history in a database, add risk scoring with business context, and suggest infrastructure-as-code fixes for human approval.
 
