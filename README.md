@@ -60,9 +60,9 @@ flowchart TB
 
 Solid lines are live today. Dashed boxes are on the roadmap. The browser never sees API keys or calls the model directly; every request goes through the server-side function.
 
-1. The engineer submits a finding (JSON: id, title, severity, service, description).
+1. The engineer submits a finding (JSON: id, title, severity, service, description). While the analysis runs, the page shows a spinner, an elapsed-seconds counter, and the expected wait (about 15 seconds).
 2. A server-side Next.js route handler validates the finding against a strict Zod schema (required fields, allowed severities, length limits, no extra fields) and rejects malformed JSON with a safe error.
-3. The AI SDK (`generateText`) sends the finding through Vercel AI Gateway to the configured model (currently `openai/gpt-5.2`). Credentials never reach the browser.
+3. The AI SDK (`generateText`) sends the finding through Vercel AI Gateway to the configured model (currently `openai/gpt-5.2`, low reasoning effort, output capped at 4,000 tokens). Credentials never reach the browser.
 4. The response separates verified facts from assumptions, so the engineer knows what still needs checking.
 
 **Example input**
@@ -178,21 +178,29 @@ Error responses are generic by design; validation details are not echoed back to
 
 ## Performance
 
-Measured with 10 sequential requests per configuration against the production build (`npm run build && npm start`) running locally, using the same finding each time ("An IAM role has AdministratorAccess permissions"). Every request returned HTTP 200 with a complete, schema-valid analysis.
+All runs used the same finding ("An IAM role has AdministratorAccess permissions"), 10 sequential requests per configuration. Every request returned HTTP 200 with a complete, schema-valid analysis.
 
-| Configuration                     | Median | Mean   | Fastest | Slowest | Std. dev. |
-| --------------------------------- | ------ | ------ | ------- | ------- | --------- |
-| GPT-5.2, default reasoning        | 15.8 s | 15.6 s | 11.7 s  | 18.1 s  | 1.8 s     |
-| GPT-5.2, `reasoningEffort: "low"` | 15.4 s | 15.6 s | 14.8 s  | 17.5 s  | 0.9 s     |
+| Environment                                           | Configuration                     | Median     | Mean       | Fastest | Slowest | Std. dev. |
+| ----------------------------------------------------- | --------------------------------- | ---------- | ---------- | ------- | ------- | --------- |
+| Local production build (`npm run build && npm start`) | GPT-5.2, default reasoning        | 15.8 s     | 15.6 s     | 11.7 s  | 18.1 s  | 1.8 s     |
+| Local production build                                | GPT-5.2, `reasoningEffort: "low"` | 15.4 s     | 15.6 s     | 14.8 s  | 17.5 s  | 0.9 s     |
+| **Live Vercel deployment**                            | GPT-5.2, `reasoningEffort: "low"` | **15.7 s** | **15.7 s** | 13.8 s  | 17.7 s  | 1.2 s     |
 
-A sample request used 488 input and 929 output tokens. Next.js overhead was about 50 ms; virtually all of the response time is the model call.
+The app currently runs with low reasoning effort, which gave more consistent response times.
 
-Note: The app currently runs with low reasoning effort, which gave more consistent response times.
+**Where the time goes (live deployment, from the app's own timing logs)**
+
+| Measure                                         | Result                                                               |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| Model call                                      | median 15.5 s, mean 15.4 s (13.6–17.4 s)                             |
+| Everything outside the model (network + Vercel) | about 0.34 s on average; about 1.2 s on the first request after idle |
+| Tokens per analysis                             | 488 input; about 990 output on average (895–1,054)                   |
 
 **What the numbers show**
 
 - Lowering reasoning effort did not change average latency for this workload. It narrowed the spread (standard deviation fell from 1.8 s to 0.9 s), making response times more predictable.
-- At about 929 output tokens in roughly 15 seconds, generation speed, not application code, is the bottleneck.
+- The model call is about 98% of the response time. Hosting adds roughly a third of a second, so the platform is not the bottleneck; model generation is.
+- Live results match the local production build within about 0.3 s, so the local benchmarks are representative.
 - Around 15 seconds is acceptable for a proof of concept but slow for an interactive tool.
 
 **How I would improve it beyond the POC**
@@ -223,6 +231,7 @@ Because the app handles infrastructure details, security is part of the design, 
 - **Input validation:** a strict Zod schema enforces required fields, allowed severity values, and length limits, and rejects unknown fields and malformed JSON.
 - **Untrusted input:** the finding is passed to the model as data, and the system prompt tells the model to treat it as untrusted, not as instructions.
 - **Safe errors:** failures return generic messages; details stay in server logs.
+- **Cost controls (three layers):** Vercel Authentication keeps unknown users out; `maxOutputTokens` caps every request at 4,000 tokens (typical use is about 990); and an AI Gateway project budget sets a hard monthly ceiling with email alerts at 50%, 75%, and 100%. If the budget is reached, the app returns a clear "usage limit reached" message (503) instead of a generic failure.
 - **Human in the loop:** the app recommends; it never executes infrastructure changes.
 - **Structured, honest output:** the model must return a schema-validated object that separates verified facts from assumptions; malformed responses are rejected with a clean error.
 
@@ -230,7 +239,7 @@ Because the app handles infrastructure details, security is part of the design, 
 
 ## Roadmap
 
-- **Now:** deployed on Vercel, server-side analysis endpoint with Zod validation, AI SDK and AI Gateway integration, structured JSON output validated against a Zod schema and rendered by section, end-to-end test with a synthetic IAM finding.
+- **Now:** deployed on Vercel, server-side analysis endpoint with Zod validation, AI SDK and AI Gateway integration, structured JSON output validated against a Zod schema and rendered by section, loading timer, cost guardrails (token cap and AI Gateway budget), functional, security, and performance tests on the live deployment.
 - **Next:** an automated test set of sample findings with expected ratings (including more prompt-injection cases), application-level authentication and RBAC, rate limiting, audit logging, streaming responses, and a speed, cost, and quality comparison across models through AI Gateway.
 - **Later:** pull findings directly from AWS Security Hub, keep finding history in a database, add risk scoring with business context, and suggest infrastructure-as-code fixes for human approval.
 
