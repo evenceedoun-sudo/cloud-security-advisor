@@ -40,13 +40,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "Request is too large." }, { status: 413 });
   }
 
+  // Check the real size too: Content-Length can be missing (chunked uploads) or wrong.
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
+    return Response.json({ error: "Request is too large." }, { status: 413 });
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return Response.json(
       { error: "Invalid JSON request body." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -54,7 +60,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json(
       { error: "Invalid finding. Check the submitted fields." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -88,7 +94,7 @@ export async function POST(request: Request) {
     return Response.json(
       { finding: parsed.data, analysis: result.output },
       // Server-Timing shows the model time in the browser's DevTools Network tab.
-      { headers: { "Server-Timing": `model;dur=${ms}` } }
+      { headers: { "Server-Timing": `model;dur=${ms}` } },
     );
   } catch (error) {
     const ms = Date.now() - started;
@@ -102,7 +108,7 @@ export async function POST(request: Request) {
           error:
             "The analysis came back in an unexpected format. Please try again.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -114,14 +120,14 @@ export async function POST(request: Request) {
           error:
             "The demo has reached its usage limit for this period. Please try again later.",
         },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
     console.error("Analysis request failed", { ms, error });
     return Response.json(
       { error: "Analysis is temporarily unavailable." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
