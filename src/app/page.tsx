@@ -1,7 +1,7 @@
 // Copyright 2026 Kayode Edoun
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Analysis } from "@/lib/analysis";
 
 type Severity = "Critical" | "High" | "Medium" | "Low";
@@ -15,6 +15,15 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Seconds since the current analysis started, shown while the model works.
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!loading) return;
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [loading]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -168,8 +177,26 @@ export default function Home() {
           disabled={loading}
           className="w-full rounded-md bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? "Analyzing finding..." : "Analyze Security Finding"}
+          {loading ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <span
+                aria-hidden="true"
+                className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+              />
+              Analyzing finding… {elapsed}s
+            </span>
+          ) : (
+            "Analyze Security Finding"
+          )}
         </button>
+
+        {loading && (
+          <p aria-live="polite" className="text-center text-sm text-gray-500">
+            {elapsed < 25
+              ? "AI analysis usually takes about 15 seconds."
+              : "Taking longer than usual. Still working…"}
+          </p>
+        )}
 
         {error && (
           <div role="alert" className="rounded-md bg-red-50 p-4 text-red-800">

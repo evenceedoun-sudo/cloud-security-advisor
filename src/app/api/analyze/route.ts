@@ -11,7 +11,7 @@
  * exposed to the browser.
  */
 
-import { generateText, NoObjectGeneratedError, Output } from "ai";
+import { APICallError, generateText, NoObjectGeneratedError, Output } from "ai";
 import { analysisSchema, findingSchema } from "@/lib/analysis";
 
 // Largest request body accepted, in bytes. A valid finding is well under this.
@@ -19,6 +19,10 @@ const MAX_BODY_BYTES = 10_000;
 
 // Model routed through Vercel AI Gateway. Change it here to compare speed, cost, and quality.
 const MODEL = "openai/gpt-5.2";
+
+// Upper bound on tokens the model may generate per request (reasoning plus answer).
+// A typical analysis uses about 1,000; this cap limits cost if a response runs away.
+const MAX_OUTPUT_TOKENS = 4_000;
 
 const SYSTEM_PROMPT = [
   "You are a cloud security advisor reviewing one synthetic security finding.",
@@ -63,6 +67,7 @@ export async function POST(request: Request) {
       system: SYSTEM_PROMPT,
       prompt: `Analyze this finding:\n${JSON.stringify(parsed.data)}`,
       providerOptions: { openai: { reasoningEffort: "low" } },
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
       output: Output.object({
         name: "security_finding_analysis",
         schema: analysisSchema,
@@ -101,10 +106,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // AI Gateway answers 402 when the spend budget for this project is used up.
+    if (isBudgetExceeded(error)) {
+      console.error("AI Gateway budget exceeded", { ms });
+      return Response.json(
+        {
+          error:
+            "The demo has reached its usage limit for this period. Please try again later.",
+        },
+        { status: 503 }
+      );
+    }
+
     console.error("Analysis request failed", { ms, error });
     return Response.json(
       { error: "Analysis is temporarily unavailable." },
       { status: 500 }
     );
   }
+}
+
+// True when AI Gateway rejected the request because a spend budget was exceeded.
+// The SDK may surface this as different error classes, so check the status and message.
+function isBudgetExceeded(error: unknown): boolean {
+  if (APICallError.isInstance(error) && error.statusCode === 402) return true;
+  const text = error instanceof Error ? error.message : String(error);
+  return /quota_for_entity_exceeded|budget exceeded/i.test(text);
 }
