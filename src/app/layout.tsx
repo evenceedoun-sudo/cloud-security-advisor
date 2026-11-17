@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { WebVitals } from "./web-vitals";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -14,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Cloud Security Advisor",
-  description: "AI-assisted analysis and remediation guidance for cloud security findings",
+  description:
+    "AI-assisted analysis and remediation guidance for cloud security findings",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -23,7 +26,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <SpeedInsights />
+        <WebVitals />
+      </body>
     </html>
   );
 }
