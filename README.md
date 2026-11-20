@@ -247,16 +247,16 @@ The app currently runs with low reasoning effort, which gave more consistent res
 
 The same app on AWS would mean wiring together CloudFront, S3, Lambda, API Gateway, IAM, Secrets Manager, CloudWatch, and Route 53. For an early-stage AI app, that is a lot of infrastructure work before the first useful result.
 
-<p align="center">
-  <a href="docs/screenshots/vercel-vs-aws-architecture.png"><img src="docs/screenshots/vercel-vs-aws-architecture.png" alt="Architecture diagram comparing the Vercel application stack with a custom AWS stack" /></a>
-</p>
-
 |                      | Vercel                                 | Custom AWS stack                |
 | -------------------- | -------------------------------------- | ------------------------------- |
 | Time to first deploy | Minutes                                | Days of setup                   |
 | Git workflow         | Preview URL per pull request, built in | Pipeline to design              |
 | Model access         | AI Gateway: one API, many providers    | Custom integration per provider |
 | Low-level control    | More abstracted                        | Fully configurable              |
+
+<p align="center">
+  <a href="docs/screenshots/vercel-vs-aws-architecture.png"><img src="docs/screenshots/vercel-vs-aws-architecture.png" alt="Architecture diagram comparing the Vercel application stack with a custom AWS stack" /></a>
+</p>
 
 **Decision:** Vercel let me spend my time on analysis quality and security design rather than plumbing. I'd revisit AWS-native hosting if the app needed private networking into customer VPCs or deep integration with AWS services. The likely end state is hybrid: Vercel for the app and AI layer, AWS for the customer's data and findings.
 
