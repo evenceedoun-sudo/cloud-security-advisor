@@ -365,15 +365,37 @@ export default function Home() {
           {analysis.evidenceToVerify.length > 0 && (
             <div>
               <h3 className="mb-2 font-semibold">Evidence to verify</h3>
+              <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                AI-generated commands. Review each one before running it, and run it with read-only credentials.
+              </p>
               <ul className="space-y-2">
-                {analysis.evidenceToVerify.map((item, i) => (
-                  <li key={i} className="rounded-md bg-gray-50 p-3">
-                    <p className="font-medium">{item.check}</p>
-                    <p className="mt-1 font-mono text-sm text-gray-700 break-words">
-                      {item.howTo}
-                    </p>
-                  </li>
-                ))}
+                {analysis.evidenceToVerify.map((item, i) => {
+                  const mayChangeResources =
+                    /\b(create|delete|put|update|attach|detach|remove|add|modify|terminate|start|stop|enable|disable|grant|revoke|associate|disassociate|replace|restore|import|export|write|execute|invoke|set|apply|patch)\b/i.test(
+                      item.howTo,
+                    );
+
+                  return (
+                    <li
+                      key={i}
+                      className={`rounded-md border bg-gray-50 p-3 ${
+                        mayChangeResources
+                          ? "border-red-500"
+                          : "border-transparent"
+                      }`}
+                    >
+                      <p className="font-medium">{item.check}</p>
+                      <p className="mt-1 break-words font-mono text-sm text-gray-700">
+                        {item.howTo}
+                      </p>
+                      {mayChangeResources && (
+                        <p className="mt-2 text-sm font-medium text-red-800">
+                          This command can change resources. Don’t run it to verify a finding.
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
