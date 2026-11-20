@@ -366,7 +366,7 @@ export default function Home() {
             <div>
               <h3 className="mb-2 font-semibold">Evidence to verify</h3>
               <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-                AI-generated commands. Review each one before running it, and run it with read-only credentials.
+                AI-generated commands are untrusted. Review each one before running it, and run it only in a sandbox or non-production AWS account with read-only credentials.
               </p>
               <ul className="space-y-2">
                 {analysis.evidenceToVerify.map((item, i) => {
