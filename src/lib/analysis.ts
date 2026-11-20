@@ -55,7 +55,7 @@ export const analysisSchema = z.object({
         howTo: z
           .string()
           .describe(
-            "How an engineer would confirm it, e.g. a console path or AWS CLI command."
+            "A read-only way to confirm it, using describe, get, or list commands only. Never suggest commands that create, delete, put, update, attach, or otherwise change resources."
           ),
       })
     )
