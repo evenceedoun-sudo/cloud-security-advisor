@@ -247,6 +247,10 @@ The app currently runs with low reasoning effort, which gave more consistent res
 
 The same app on AWS would mean wiring together CloudFront, S3, Lambda, API Gateway, IAM, Secrets Manager, CloudWatch, and Route 53. For an early-stage AI app, that is a lot of infrastructure work before the first useful result.
 
+<p align="center">
+  <a href="docs/screenshots/vercel-vs-aws-architecture.png"><img src="docs/screenshots/vercel-vs-aws-architecture.png" alt="Architecture diagram comparing the Vercel application stack with a custom AWS stack" /></a>
+</p>
+
 |                      | Vercel                                 | Custom AWS stack                |
 | -------------------- | -------------------------------------- | ------------------------------- |
 | Time to first deploy | Minutes                                | Days of setup                   |
